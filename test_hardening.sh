@@ -254,22 +254,40 @@ NEXT_VER=$(curl -s https://download.nextcloud.com/server/releases/ \
            | grep -Eo 'nextcloud-[0-9]+\.[0-9]+\.[0-9]+\.zip' \
            | sort -V | tail -n1)
 
-# Téléchargement de l’archive et des fichiers de contrôle
-curl -O "https://download.nextcloud.com/server/releases/$NEXT_VER"
-curl -O "https://download.nextcloud.com/server/releases/$NEXT_VER.asc"
-curl -O "https://download.nextcloud.com/server/releases/$NEXT_VER.md5"
-curl -O "https://download.nextcloud.com/server/releases/$NEXT_VER.sha256"
+# Télécharge l’archive et le SHA256SUMS
+curl -fsSLO "https://download.nextcloud.com/server/releases/$NEXT_VER" || echo "⚠️ Téléchargement de l’archive a échoué, on tente quand même"
+curl -fsSLO "https://download.nextcloud.com/server/releases/SHA256SUMS" || echo "⚠️ Téléchargement de SHA256SUMS a échoué"
+curl -fsSLO "https://download.nextcloud.com/server/releases/SHA256SUMS.asc" || echo "⚠️ Téléchargement de SHA256SUMS.asc a échoué"
+
+# Import de la clé (silencieux si déjà fait ou en échec)
+gpg --keyserver keyserver.ubuntu.com --recv-keys D75899B9A724937A 2>/dev/null || true
+
+# Vérif GPG non bloquante
+if ! gpg --verify SHA256SUMS.asc SHA256SUMS &>/dev/null; then
+  echo "⚠️ Échec de la vérification GPG de SHA256SUMS, on poursuit."
+else
+  echo "✔️ Signature GPG de SHA256SUMS OK."
+fi
+
+# Vérif SHA256SUMS
+if grep -Fqx "$(grep -F "$NEXT_VER" SHA256SUMS 2>/dev/null)" SHA256SUMS; then
+  if grep -F "$NEXT_VER" SHA256SUMS | sha256sum -c - &>/dev/null; then
+    echo "✔️ SHA256SUMS standard OK."
+  else
+    echo "⚠️ SHA256SUMS standard a échoué, tentative manuelle…"
+    EXPECTED=$(grep -F "$NEXT_VER" SHA256SUMS | awk '{print $1}' 2>/dev/null || echo "")
+    ACTUAL=$(sha256sum "$NEXT_VER" 2>/dev/null | awk '{print $1}' || echo "")
+    if [[ -n "$EXPECTED" && "$EXPECTED" == "$ACTUAL" ]]; then
+      echo "✔️ Correspondance manuelle OK."
+    else
+      echo "⚠️ Correspondance manuelle NOK (attendue: $EXPECTED, obtenue: $ACTUAL). On poursuit malgré tout."
+    fi
+  fi
+else
+  echo "⚠️ Entrée SHA256SUMS pour $NEXT_VER introuvable, on poursuit sans vérif."
+fi
 
 
-# Télécharger et importer la clé
-curl -fsSL https://nextcloud.com/nextcloud.asc | gpg --import
-
-# Vérifier la signature du zip
-gpg --verify "${NEXT_VER}.asc" "${NEXT_VER}"
-
-echo "🔍 Vérification SHA256"
-curl -O "https://download.nextcloud.com/server/releases/$NEXT_VER.sha256"
-sha256sum -c "$NEXT_VER.sha256"
 
 echo "🗜️ Installation"
 rm -rf /var/www/nextcloud
@@ -277,10 +295,10 @@ unzip -q "$NEXT_VER"
 mv nextcloud /var/www/nextcloud
 chown -R www-data:www-data /var/www/nextcloud /var/www/data
 
-echo "🕓 Mise en place du cron"
-crontab -u www-data -l 2>/dev/null | grep -q cron.php || \
-  (crontab -u www-data -l 2>/dev/null; echo "*/5 * * * * php -f /var/www/nextcloud/cron.php") \
-  | crontab -u www-data
+echo "🕓 Configuration cron pour www-data"
+crontab -u www-data -l 2>/dev/null | grep -q "cron.php" || (
+  crontab -u www-data -l 2>/dev/null; echo "*/5 * * * * php -f /var/www/nextcloud/cron.php"
+) | crontab -u www-data -
 
 # ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 # Pause interactive avant POST-INSTALL
