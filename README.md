@@ -29,10 +29,8 @@ Installer et configurer automatiquement un serveur Nextcloud durci, auto-héberg
 ## 🧩 Étapes du script
 
 ### ✅ Préparation système
-- Vérifie que le script est exécuté en tant que root.
-- Met à jour le système, ajoute les dépôts nécessaires.
+- Met à jour le système, modifie les dépôts nécessaires.
 - Installe les paquets de base (curl, unzip, MariaDB, Apache2, PHP, Redis...).
-- Durcit la configuration système (fail2ban, ufw, auditd...).
 
 ### 🔐 Sécurisation de MariaDB
 - Supprime les utilisateurs anonymes et la base `test`.
@@ -78,7 +76,7 @@ Un fichier `idbdd.txt` est stocké dans `/home/<user>/nxt/` contenant :
 - MariaDB
 - Redis
 - GPG
-- fail2ban, ufw, auditd (durcissement)
+
 
 ---
 
