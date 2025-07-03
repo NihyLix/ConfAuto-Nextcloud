@@ -5,6 +5,9 @@
 set -euo pipefail
 umask 027
 
+LOG_FILE="/var/log/nextcloud-install.log"
+exec > >(tee -a "$LOG_FILE") 2>&1
+
 # 📜 Logging complet
 LOGFILE="/var/log/nextcloud_install.log"
 exec > >(tee -a "$LOGFILE") 2>&1
@@ -298,13 +301,20 @@ unzip -q "$NEXT_VER"
 mv nextcloud /var/www/nextcloud
 chown -R www-data:www-data /var/www/nextcloud /var/www/data
 
-# Configure cron for www-data, only if not already present
-if ! crontab -u www-data -l 2>/dev/null | grep -q 'cron.php'; then
-  ( 
-    crontab -u www-data -l 2>/dev/null 
-    echo '*/5 * * * * php -f /var/www/nextcloud/cron.php' 
-  ) | crontab -u www-data -
+echo "🕓 Configuration cron pour www-data"
+CRON_FILE="/tmp/www-data.cron"
+
+crontab -u www-data -l 2>/dev/null > "$CRON_FILE" || touch "$CRON_FILE"
+
+if ! grep -q "cron.php" "$CRON_FILE"; then
+  echo '*/5 * * * * php -f /var/www/nextcloud/cron.php' >> "$CRON_FILE"
+  crontab -u www-data "$CRON_FILE"
+  echo "✔️ Tâche cron ajoutée pour www-data"
+else
+  echo "✔️ Tâche cron déjà présente pour www-data"
 fi
+
+rm -f "$CRON_FILE"
 
 
 # ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
