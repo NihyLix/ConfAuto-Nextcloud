@@ -62,7 +62,7 @@ Un fichier `idbdd.txt` est stocké dans `/home/<user>/nxt/` contenant :
 ---
 
 ## 📌 Notes de sécurité
-- Le script applique plusieurs recommandations issues des guides de l’[ANSSI](https://www.ssi.gouv.fr).
+- Le script tente de s'approcher des recommandations issues des guides de l’[ANSSI](https://www.ssi.gouv.fr).
 - L’installation se fait **entièrement en local** sans service cloud ou DNS.
 - Le certificat est autosigné (à personnaliser si besoin).
 
