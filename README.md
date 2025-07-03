@@ -3,7 +3,28 @@
 ## 📋 Objectif
 Installer et configurer automatiquement un serveur Nextcloud durci, auto-hébergé et prêt à l'emploi sur une machine Debian 12, avec sécurisation conforme aux recommandations de l'ANSSI.
 
----
+
+## ✅ Points conformes aux bonnes pratiques
+
+| Domaine                       | Évaluation                                                                            |
+|------------------------------|---------------------------------------------------------------------------------------|
+| Authentification MariaDB     | Passage en mode `unix_socket` pour `root` ✅                                          |
+| Création aléatoire DB/user   | Génération robuste avec `openssl rand` et `/dev/urandom` ✅                           |
+| Configuration Apache HTTPS   | Certificat autosigné + headers de sécurité HTTPS ✅                                   |
+| Environnement séparé         | `/var/www/nextcloud`, `/var/www/data` avec droits `www-data` ✅                        |
+| Signature GPG                | Vérification PGP de l’archive via `.asc` ✅                                           |
+| Hash SHA512                  | Comparaison attendue vs obtenue manuellement ✅                                       |
+| Crontab `www-data`           | Ajout automatique de la tâche cron Nextcloud ✅                                       |
+
+## ⚠️ Points perfectibles (installateur uniquement)
+
+| Catégorie                    | Détail                                                                       | Recommandation                                      |
+|-----------------------------|------------------------------------------------------------------------------|-----------------------------------------------------|
+| Tolérance à l’erreur        | Erreurs GPG/SHA ignorées sans arrêt ou avertissement fort                   | Ajouter un mode `--strict` pour forcer l’arrêt      |
+| Logs d’installation         | Aucune trace laissée des actions effectuées                                 | Ajouter log vers `/var/log/nextcloud-install.log`   |
+| Validation utilisateur root | Pas de contrôle sur l’utilisateur en exécution                              | Ajouter `[[ $EUID -ne 0 ]] && exit 1`               |
+| Téléchargements `curl`      | Manque `--tlsv1.2` et `--proto` pour durcir TLS                              | Ajouter options sécurisées à `curl`                 |
+
 
 ## 🧩 Étapes du script
 
