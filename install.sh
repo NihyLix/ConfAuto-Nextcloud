@@ -241,53 +241,56 @@ a2enmod ssl rewrite headers http2
 a2dissite 000-default default-ssl || true
 a2ensite nextcloud.conf
 
-set +o pipefail
 systemctl restart apache2
-set -o pipefail
+
 # ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 # ETAPE 6 : Téléchargement & vérification Nextcloud
 # ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
 echo "📥 Récupération Nextcloud"
 cd /tmp
+
+# Récupère le dernier .zip
 NEXT_VER=$(curl -s https://download.nextcloud.com/server/releases/ \
            | grep -Eo 'nextcloud-[0-9]+\.[0-9]+\.[0-9]+\.zip' \
            | sort -V | tail -n1)
+echo "→ Version détectée : $NEXT_VER"
+BASE="${NEXT_VER%.zip}"
 
-# Télécharge l’archive et le SHA256SUMS
-curl -fsSLO "https://download.nextcloud.com/server/releases/$NEXT_VER" || echo "⚠️ Téléchargement de l’archive a échoué, on tente quand même"
-curl -fsSLO "https://download.nextcloud.com/server/releases/SHA256SUMS" || echo "⚠️ Téléchargement de SHA256SUMS a échoué"
-curl -fsSLO "https://download.nextcloud.com/server/releases/SHA256SUMS.asc" || echo "⚠️ Téléchargement de SHA256SUMS.asc a échoué"
+# 0) Télécharger l’archive et ses checksums avec un barre de progression
+for SUFFIX in .zip .zip.sha512 .zip.asc; do
+  URL="https://download.nextcloud.com/server/releases/${NEXT_VER%%.zip}${SUFFIX}"
+  echo -e "\n↓ Téléchargement de ${URL}"
+  curl -L --fail --progress-bar -O "$URL" \
+    || echo "⚠️ Échec téléchargement $SUFFIX, on continue malgré tout"
+done
 
-# Import de la clé (silencieux si déjà fait ou en échec)
+# 1) Importer la clé Nextcloud (silencieux si déjà fait)
 gpg --keyserver keyserver.ubuntu.com --recv-keys D75899B9A724937A 2>/dev/null || true
 
-# Vérif GPG non bloquante
-if ! gpg --verify SHA256SUMS.asc SHA256SUMS &>/dev/null; then
-  echo "⚠️ Échec de la vérification GPG de SHA256SUMS, on poursuit."
+# 2) Vérifier la signature de l’archive
+if gpg --verify "${NEXT_VER}.asc" "$NEXT_VER" &>/dev/null; then
+  echo "✔️ Signature PGP de l’archive OK."
 else
-  echo "✔️ Signature GPG de SHA256SUMS OK."
+  echo "⚠️ Échec de la signature PGP de l’archive, on continue."
 fi
 
-# Vérif SHA256SUMS
-if grep -Fqx "$(grep -F "$NEXT_VER" SHA256SUMS 2>/dev/null)" SHA256SUMS; then
-  if grep -F "$NEXT_VER" SHA256SUMS | sha256sum -c - &>/dev/null; then
-    echo "✔️ SHA256SUMS standard OK."
-  else
-    echo "⚠️ SHA256SUMS standard a échoué, tentative manuelle…"
-    EXPECTED=$(grep -F "$NEXT_VER" SHA256SUMS | awk '{print $1}' 2>/dev/null || echo "")
-    ACTUAL=$(sha256sum "$NEXT_VER" 2>/dev/null | awk '{print $1}' || echo "")
-    if [[ -n "$EXPECTED" && "$EXPECTED" == "$ACTUAL" ]]; then
-      echo "✔️ Correspondance manuelle OK."
-    else
-      echo "⚠️ Correspondance manuelle NOK (attendue: $EXPECTED, obtenue: $ACTUAL). On poursuit malgré tout."
-    fi
-  fi
+# 3) Extraction du hash attendu
+EXPECTED=$(awk -v f="$NEXT_VER" '$2==f {print $1}' "${BASE}.zip.sha512")
+
+# 4) Calcul du hash réel
+ACTUAL=$(sha512sum "$NEXT_VER" | awk '{print $1}')
+
+# 5) Comparaison
+if [[ -n "$EXPECTED" && "$EXPECTED" == "$ACTUAL" ]]; then
+  echo "✔️ Checksum SHA-512 OK."
 else
-  echo "⚠️ Entrée SHA256SUMS pour $NEXT_VER introuvable, on poursuit sans vérif."
+  echo "❌ Checksum SHA-512 NOK (attendu: $EXPECTED, obtenu: $ACTUAL)."
 fi
 
-
+# ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+# INSTALLATION NEXTCLOUD
+# ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 
 echo "🗜️ Installation"
 rm -rf /var/www/nextcloud
@@ -295,10 +298,14 @@ unzip -q "$NEXT_VER"
 mv nextcloud /var/www/nextcloud
 chown -R www-data:www-data /var/www/nextcloud /var/www/data
 
-echo "🕓 Configuration cron pour www-data"
-crontab -u www-data -l 2>/dev/null | grep -q "cron.php" || (
-  crontab -u www-data -l 2>/dev/null; echo "*/5 * * * * php -f /var/www/nextcloud/cron.php"
-) | crontab -u www-data -
+# Configure cron for www-data, only if not already present
+if ! crontab -u www-data -l 2>/dev/null | grep -q 'cron.php'; then
+  ( 
+    crontab -u www-data -l 2>/dev/null 
+    echo '*/5 * * * * php -f /var/www/nextcloud/cron.php' 
+  ) | crontab -u www-data -
+fi
+
 
 # ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 # Pause interactive avant POST-INSTALL
@@ -308,7 +315,11 @@ pause() {
   local msg="${1:-Appuyez sur Entrée pour la suite…}"
   read -rp "$msg" </dev/tty
 }
-echo "▶️ Étapes 1–6 terminées, vérifiez https://localhost puis"
+echo "▶️ Étapes 1–6 terminées."
+echo "$DB_INFO_FILE"
+cat "$DB_INFO_FILE"
+
+echo "Terminer l'assistance web avant de poursuivre..."
 pause "🔧 Prêt pour la configuration OCC & Redis ? [Entrée]"
 
 # ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
@@ -337,7 +348,7 @@ $OCC config:system:set mail_smtpauth       --type=boolean --value=true
 $OCC config:system:set mail_smtpauthtype   --type=string  --value="LOGIN"
 $OCC config:system:set mail_smtpname       --type=string  --value="user@example.com"
 $OCC config:system:set mail_smtppassword   --type=string  --value="your_smtp_password"
-
+$OCC maintenance:repair --include-expensive
 echo "🔧 Maintenance window (1h-5h)"
 $OCC config:system:set maintenance_window_start --type=integer --value=1
 echo "✅ Configuration POST-INSTALL terminée"
