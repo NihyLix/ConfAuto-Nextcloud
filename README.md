@@ -4,9 +4,9 @@
 Installer et configurer automatiquement un serveur Nextcloud durci, auto-hébergé et prêt à l'emploi sur une machine Debian 12, avec sécurisation conforme aux recommandations de l'ANSSI.
 
 
-## ✅ Points conformes aux bonnes pratiques
+## PREVIEW
 
-| Domaine                       | Évaluation                                                                            |
+| ✅ Points positifs                           | Détails                                                                 |
 |------------------------------|---------------------------------------------------------------------------------------|
 | Authentification MariaDB     | Passage en mode `unix_socket` pour `root` ✅                                          |
 | Création aléatoire DB/user   | Génération robuste avec `openssl rand` et `/dev/urandom` ✅                           |
@@ -16,14 +16,16 @@ Installer et configurer automatiquement un serveur Nextcloud durci, auto-héberg
 | Hash SHA512                  | Comparaison attendue vs obtenue manuellement ✅                                       |
 | Crontab `www-data`           | Ajout automatique de la tâche cron Nextcloud ✅                                       |
 
-## ⚠️ Points perfectibles (installateur uniquement)
 
-| Catégorie                    | Détail                                                                       | Recommandation                                      |
-|-----------------------------|------------------------------------------------------------------------------|-----------------------------------------------------|
-| Tolérance à l’erreur        | Erreurs GPG/SHA ignorées sans arrêt ou avertissement fort                   | Ajouter un mode `--strict` pour forcer l’arrêt      |
-| Logs d’installation         | Aucune trace laissée des actions effectuées                                 | Ajouter log vers `/var/log/nextcloud-install.log`   |
-| Validation utilisateur root | Pas de contrôle sur l’utilisateur en exécution                              | Ajouter `[[ $EUID -ne 0 ]] && exit 1`               |
-| Téléchargements `curl`      | Manque `--tlsv1.2` et `--proto` pour durcir TLS                              | Ajouter options sécurisées à `curl`                 |
+| ⚠️ Points d'amélioration                    | Recommandations ANSSI / durcissement possible                          |
+|---------------------------------------------|-------------------------------------------------------------------------|
+| Pas de validation du certificat HTTPS       | `curl -fsSLO` ne vérifie pas le certificat avec `--cacert` personnalisé |
+| Pas d’audit de conf Apache finale           | Ajouter un test `apache2ctl configtest` + vérif des headers            |
+| Aucune vérification de version PHP / dépend.| Vérifier que les versions installées sont sécurisées                   |
+| Cron modifié sans journalisation            | Ajouter `logger` ou `echo` de confirmation + `/var/log`                |
+| Pas de fallback si Redis est injoignable    | Ajouter `redis-cli ping` avant config OCC, avec test d’échec           |
+| Pas de séparation des logs install / erreurs| Recommander `exec > >(tee install.log) 2> >(tee errors.log >&2)`       |
+
 
 
 ## 🧩 Étapes du script
