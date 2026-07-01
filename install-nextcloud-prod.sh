@@ -316,8 +316,10 @@ configure_apache() {
     chmod 644 "$cert"
   fi
 
-  if ! grep -Eq "^Listen ${APACHE_BACKEND_PORT}$" /etc/apache2/ports.conf; then
-    echo "Listen ${APACHE_BACKEND_PORT}" >> /etc/apache2/ports.conf
+  if [[ "$APACHE_BACKEND_PORT" != "443" ]]; then
+    if ! grep -Eq "^[[:space:]]*Listen[[:space:]]+${APACHE_BACKEND_PORT}([[:space:]]|$)" /etc/apache2/ports.conf; then
+      echo "Listen ${APACHE_BACKEND_PORT}" >> /etc/apache2/ports.conf
+    fi
   fi
 
   cat > /etc/apache2/conf-available/nextcloud-hardening.conf <<'EOF_APACHE_HARDENING'
