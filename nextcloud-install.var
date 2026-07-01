@@ -1,0 +1,82 @@
+# Configuration installation Nextcloud production interne
+# Copier ce fichier, l'adapter, puis lancer :
+#   sudo bash install-nextcloud-prod.sh ./nextcloud-install.var
+
+# Domaine publié côté utilisateur par Traefik.
+# Exemple : nextcloud.mondomaine.local
+NC_FQDN="nextcloud.example.local"
+
+# IP(s) du ou des reverse proxies Traefik autorisés à parler au backend Apache.
+# Séparer par des espaces si plusieurs IP.
+TRAEFIK_PROXY_IPS="10.0.0.10"
+
+# Debian cible.
+DEBIAN_VERSION_REQUIRED="12"
+
+# Version Nextcloud.
+# "latest" = dernière version stable disponible au moment de l'installation.
+# Exemple figé possible : "31.0.6"
+NEXTCLOUD_VERSION="latest"
+
+# Debian 12 fournit PHP 8.2 par défaut.
+# Pour une autre version PHP, il faut que les paquets correspondants soient disponibles dans APT.
+PHP_VERSION="8.2"
+TIMEZONE="Europe/Paris"
+
+# Chemins applicatifs.
+NC_WEB_DIR="/var/www/nextcloud"
+NC_DATA_DIR="/var/www/data"
+
+# Compte administrateur initial.
+# Si NC_ADMIN_PASS est vide, le script génère un mot de passe et le stocke dans /root/nextcloud-install-secrets.env.
+NC_ADMIN_USER="ncadmin"
+NC_ADMIN_PASS=""
+
+# Base MariaDB.
+# Si NC_DB_PASS est vide, le script génère un mot de passe et le stocke dans /root/nextcloud-install-secrets.env.
+NC_DB_NAME="nextcloud"
+NC_DB_USER="nextcloud"
+NC_DB_PASS=""
+DB_INNODB_BUFFER_POOL_SIZE="1G"
+
+# Backend Apache interne derrière Traefik.
+APACHE_BACKEND_PORT="443"
+APACHE_SSL_DIR="/etc/ssl/apache2/nextcloud"
+APACHE_LOG_DIR="/var/log/apache2/nextcloud"
+ENABLE_HSTS="true"
+
+# PHP.
+PHP_MEMORY_LIMIT="512M"
+PHP_UPLOAD_MAX_FILESIZE="15G"
+PHP_POST_MAX_SIZE="15G"
+PHP_MAX_EXECUTION_TIME="360"
+PHP_MAX_INPUT_TIME="360"
+
+# Paramètres Nextcloud.
+DEFAULT_PHONE_REGION="FR"
+MAINTENANCE_WINDOW_START="1"
+
+# SMTP désactivé par défaut.
+# Activer uniquement avec des valeurs réelles.
+SMTP_ENABLE="false"
+SMTP_HOST=""
+SMTP_PORT="587"
+SMTP_SECURE="tls"
+SMTP_AUTH="true"
+SMTP_AUTHTYPE="LOGIN"
+SMTP_FROM_ADDRESS="nextcloud"
+SMTP_DOMAIN="example.local"
+SMTP_USER=""
+SMTP_PASS=""
+
+# Sauvegarde applicative complémentaire pour PBS.
+# Le script crée /usr/local/sbin/nextcloud-app-backup.sh.
+# À exécuter avant le snapshot PBS si tu veux un dump MariaDB cohérent dans la VM.
+BACKUP_DIR="/var/backups/nextcloud"
+BACKUP_RETENTION_DAYS="14"
+ENABLE_LOCAL_DB_BACKUP_CRON="false"
+LOCAL_DB_BACKUP_CRON_TIME="10 2 * * *"
+
+# Sécurité anti-réinstallation destructive.
+# Laisser false en production.
+FORCE_REINSTALL="false"
